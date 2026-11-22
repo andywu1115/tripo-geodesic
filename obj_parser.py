@@ -112,4 +112,8 @@ def main(args=None) -> None:
 
     if vertices:
         for axis, name in enumerate('xyz'):
-            values = [vertex[axis] for vertex in
+            values = [vertex[axis] for vertex in vertices]
+            print(f'{name}: {min(values):.4f} to {max(values):.4f}')
+
+if __name__ == '__main__':
+    main()
