@@ -4,12 +4,13 @@
 mesh_graph_test.py
 
 Unit tests for the surface graph: edge weights against Euclidean distance,
-welding, shared edges, and disconnected surfaces.
+welding, shared edges, disconnected surfaces, and the navigable surface
+height filter.
 '''
 
 import math
 import unittest
-from mesh_graph import MeshAdjacencyGraph
+from mesh_graph import MeshAdjacencyGraph, filter_faces_above
 
 class MeshAdjacencyGraphTest(unittest.TestCase):
 
@@ -95,6 +96,29 @@ class MeshAdjacencyGraphTest(unittest.TestCase):
         self.assertEqual(graph.edge_count(), 0)
         self.assertEqual(graph.components(), [])
         self.assertEqual(graph.largest_component(), set())
+
+    def test_filter_keeps_faces_fully_above_threshold(self):
+        # One triangle flat on the base plane, one lifted above it
+        vertices = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0),
+                    (0.0, 1.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 1.0)]
+        faces = [(0, 1, 2), (3, 4, 5)]
+        self.assertEqual(filter_faces_above(vertices, faces, 0.5), [(3, 4, 5)])
+
+    def test_filter_drops_a_face_with_one_corner_below(self):
+        # A single corner touching the base drops the whole face, so no kept
+        # triangle straddles the cut
+        vertices = [(0.0, 0.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 1.0)]
+        self.assertEqual(filter_faces_above(vertices, [(0, 1, 2)], 0.5), [])
+
+    def test_filtered_vertices_leave_the_graph(self):
+        vertices = [(0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0),
+                    (0.0, 1.0, 0.0), (1.0, 1.0, 0.0), (0.0, 1.0, 1.0)]
+        faces = [(0, 1, 2), (3, 4, 5)]
+        kept = filter_faces_above(vertices, faces, 0.5)
+        graph = MeshAdjacencyGraph(vertices, kept)
+        self.assertEqual(len(graph), 3)
+        self.assertEqual(graph.neighbors(0), {})
+        self.assertEqual(sorted(graph.adjacency), [3, 4, 5])
 
 if __name__ == '__main__':
     unittest.main()

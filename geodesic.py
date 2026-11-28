@@ -37,8 +37,9 @@ Predecessors = dict[int, int]
 
 # Functions
 
-def compute_geodesic_field(graph: MeshAdjacencyGraph,
-                           origin: int) -> tuple[Distances, Predecessors]:
+def compute_geodesic_field(graph: MeshAdjacencyGraph, origin: int,
+                           frontier_factory=MinHeap
+                           ) -> tuple[Distances, Predecessors]:
     '''
     Dijkstra from one origin across the whole surface.
 
@@ -50,7 +51,7 @@ def compute_geodesic_field(graph: MeshAdjacencyGraph,
     operation O(log V) with no index bookkeeping. A real decrease key would
     need a dict from each vertex to its position in the array.
     '''
-    frontier = MinHeap()
+    frontier = frontier_factory()
     frontier.insert((0.0, origin, origin))
 
     distances: Distances = {}
