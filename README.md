@@ -7,12 +7,26 @@ algorithm.
 
 ## Running it
 ## Results
-| mesh | V | E | our MinHeap | our solver with heapq | networkx |
-| --- | --- | --- | --- | --- | --- |
-| mesh_00500 | 532 | 1,487 | 0.0081 s | 0.0013 s | 0.0013 s |
-| mesh_02000 | 2,159 | 6,281 | 0.0386 s | 0.0057 s | 0.0053 s |
-| mesh_10000 | 5,799 | 17,072 | 0.1224 s | 0.0168 s | 0.0152 s |
-| mesh_20000 | 11,408 | 33,372 | 0.2427 s | 0.0328 s | 0.0317 s |
+| mesh | V | E | HW07 linked list | our MinHeap | with heapq | networkx |
+| --- | --- | --- | --- | --- | --- | --- |
+| mesh_00500 | 532 | 1,487 | 0.0131 s | 0.0082 s | 0.0013 s | 0.0013 s |
+| mesh_02000 | 2,159 | 6,281 | 0.0832 s | 0.0382 s | 0.0058 s | 0.0054 s |
+| mesh_10000 | 5,799 | 17,072 | 0.3837 s | 0.1225 s | 0.0169 s | 0.0152 s |
+| mesh_20000 | 11,408 | 33,372 | skipped | 0.2414 s | 0.0326 s | 0.0309 s |
+
+The first three columns run the same solver and differ only in the
+priority queue, because the frontier is a parameter. The linked list is
+skipped on the largest mesh, where every insertion walks the frontier.
+
+Fitting seconds against V on log axes gives the exponent b in t
+proportional to V to the b:
+
+| frontier | b |
+| --- | --- |
+| HW07 sorted linked list | 1.41 |
+| our MinHeap | 1.11 |
+| heapq | 1.05 |
+| networkx | 1.04 |
 
 V is the largest connected component, because Dijkstra never leaves the
 component it starts in.
@@ -96,6 +110,22 @@ times slower. So the entire gap between my implementation and a tuned
 library is the priority queue, not the algorithm, the adjacency list or the
 relaxation loop. I would not have learned that from comparing against
 networkx alone, because networkx differs in everything at once.
+
+**What the exponents say.** A V log V curve has a slope of about 1.11 to
+1.16 on log axes across this range of V, so the MinHeap's measured 1.11 is
+the complexity bound confirmed rather than assumed. The linked list's 1.41
+has a geometric explanation. Dijkstra on a surface mesh settles vertices in
+a spreading region whose boundary is a closed curve, so the frontier holds
+O(sqrt(V)) entries rather than O(V). Total pushes are O(E), which is O(V)
+here, and each push walks the frontier, which predicts O(V to the 1.5). The
+measured 1.41 is close, off three data points.
+
+The other half of that result surprised me: the linked list is only 1.6 to
+3.1 times slower than the heap, not the tenfold I expected. Its removal is
+O(1), popping the head of a list already in ascending order, while the heap
+pays O(log N) to percolate down. It gives back on removal some of what it
+loses on insertion. The asymptotic gap is real and widening with V, but at
+these sizes the constant factor is small.
 
 **A hypothesis that failed:** The island is a flat-bottomed solid, so I
 expected shortest paths to cut underneath the terrain instead of following
