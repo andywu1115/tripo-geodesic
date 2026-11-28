@@ -56,7 +56,8 @@ class MeshAdjacencyGraph:
                  faces: list[tuple[int, int, int]],
                  tolerance: float = 1e-6) -> None:
         self.tolerance = tolerance
-        self.vertices, index_map = self._weld(vertices, tolerance)
+        self.vertices, self.index_map = self._weld(vertices, tolerance)
+        index_map = self.index_map
         self.adjacency: AdjacencyList = {}
 
         for face in faces:
