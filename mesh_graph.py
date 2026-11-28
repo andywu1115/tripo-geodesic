@@ -1,3 +1,4 @@
+cat > mesh_graph.py <<'EOF'
 #!/usr/bin/env python3
 
 '''
@@ -28,6 +29,26 @@ from obj_parser import load_obj
 # Each vertex maps to its neighbors and the distance along the edge to each,
 # as in the weighted graphs from EX33: {vertex: {neighbor: weight, }}
 AdjacencyList = dict[int, dict[int, float]]
+
+# Index of the up axis in a vertex tuple. These meshes are Y up: Y runs from
+# 0 at the flat base to about 0.3 at the crater rim, while X and Z each span
+# the full width.
+UP = 1
+
+# Functions
+
+# Keep only the faces whose three corners all sit above min_height.
+# Dropping the underside leaves the navigable surface: without this, a path
+# between two coastal points runs straight across the flat base instead of
+# following the terrain, which is the correct geodesic on the mesh as written
+# and the wrong answer for navigation. Requiring all three corners, rather
+# than any one, means no kept triangle straddles the cut.
+def filter_faces_above(vertices: list[tuple[float, float, float]],
+                       faces: list[tuple[int, int, int]],
+                       min_height: float,
+                       axis: int = UP) -> list[tuple[int, int, int]]:
+    return [face for face in faces
+            if all(vertices[corner][axis] > min_height for corner in face)]
 
 class MeshAdjacencyGraph:
     # Build the graph from a vertex list and a triangle list. Vertices within
@@ -137,29 +158,53 @@ class MeshAdjacencyGraph:
 
 # Main Execution
 
+def report(graph: MeshAdjacencyGraph, label: str) -> None:
+    groups = graph.components()
+    print(f'{label}:')
+    print(f'  {len(graph):,} vertices with edges, '
+          f'{graph.edge_count():,} undirected edges')
+    print(f'  {len(groups):,} connected components')
+    if groups:
+        largest = len(groups[0])
+        print(f'  largest component: {largest:,} vertices '
+              f'({100 * largest / len(graph):.1f}%)')
+
 def main(args=None) -> None:
     if args is None:
         args = sys.argv[1:]
-    if len(args) != 1:
-        print('Usage: mesh_graph.py mesh.obj')
+    if not 1 <= len(args) <= 2:
+        print('Usage: mesh_graph.py mesh.obj [min_height]')
         sys.exit(1)
 
     vertices, faces = load_obj(args[0])
-    graph = MeshAdjacencyGraph(vertices, faces)
-    groups = graph.components()
+    if not vertices:
+        print('empty mesh')
+        return
 
-    print(f'{len(vertices):,} vertices in the file')
-    print(f'{len(graph.vertices):,} after welding, '
-          f'{len(graph):,} of them in at least one edge')
-    print(f'{len(faces):,} triangles, {graph.edge_count():,} undirected edges')
-    print(f'{len(groups):,} connected components')
+    print(f'{len(vertices):,} vertices in the file, {len(faces):,} triangles')
 
-    if groups:
-        largest = len(groups[0])
-        print(f'largest component: {largest:,} vertices '
-              f'({100 * largest / len(graph):.1f}% of connected vertices)')
-        print(f'component sizes, largest first: '
-              f'{[len(group) for group in groups[:8]]}')
+    # Where the underside sits. Vertices bunched at the lowest heights are the
+    # flat base and the thin skirt at the waterline, and those are what give a
+    # path a shortcut that does not follow the terrain.
+    low = min(vertex[UP] for vertex in vertices)
+    high = max(vertex[UP] for vertex in vertices)
+    span = high - low
+    print(f'height runs {low:.4f} to {high:.4f}')
+    for fraction in (0.0, 0.001, 0.01, 0.02, 0.05, 0.10):
+        threshold = low + fraction * span
+        count = sum(1 for vertex in vertices if vertex[UP] <= threshold)
+        print(f'  at or below {threshold:.4f} ({fraction:.1%} of height): '
+              f'{count:,} vertices ({100 * count / len(vertices):.1f}%)')
+
+    report(MeshAdjacencyGraph(vertices, faces), 'whole mesh')
+
+    if len(args) == 2:
+        min_height = float(args[1])
+        kept = filter_faces_above(vertices, faces, min_height)
+        print(f'{len(kept):,} of {len(faces):,} triangles sit entirely '
+              f'above {min_height}')
+        report(MeshAdjacencyGraph(vertices, kept), f'above {min_height}')
 
 if __name__ == '__main__':
     main()
+EOF
